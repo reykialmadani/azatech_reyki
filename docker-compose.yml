@@ -1,5 +1,7 @@
-# Menjalankan seluruh stack: docker compose up -d --build
-# Nilai default (${VAR:-default}) membuat compose tetap jalan walau .env root belum dibuat.
+# Menjalankan seluruh aplikasi:
+#   cp .env.example .env
+#   docker compose up -d --build
+# Frontend: http://localhost:3000 · API: http://localhost:4000/api · Swagger: http://localhost:4000/api/docs
 name: azatech
 
 services:
@@ -21,6 +23,41 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-azatech}:${POSTGRES_PASSWORD:-azatech}@db:5432/${POSTGRES_DB:-azatech_shop}?schema=public
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # Secret wajib diisi di .env root (tidak ada default agar tidak ter-commit).
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?isi JWT_ACCESS_SECRET di .env (cp .env.example .env)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?isi JWT_REFRESH_SECRET di .env (cp .env.example .env)}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      RUN_SEED: ${RUN_SEED:-true}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@azatech.id}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin123!}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Dipakai browser, jadi harus alamat yang bisa dijangkau dari host (bukan "backend:4000").
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

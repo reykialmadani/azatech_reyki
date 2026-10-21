@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+src/generated
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.test.example
+test
+dev-plan
+docs
+*.md
+Dockerfile
+.dockerignore
+.git

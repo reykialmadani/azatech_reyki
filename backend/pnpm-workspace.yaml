@@ -4,3 +4,8 @@ allowBuilds:
   argon2: true
   esbuild: true
   prisma: true
+
+# Tahan koneksi lambat/putus (mis. saat docker build)
+fetchRetries: 5
+fetchTimeout: 120000
+networkConcurrency: 8
