@@ -1,30 +1,30 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types.js';
-import { AppModule } from './../src/app.module.js';
+import { createTestApp, type TestContext } from './helpers/test-app.js';
 
-describe('Health (e2e)', () => {
-  let app: INestApplication<App>;
+describe('Fondasi API (e2e)', () => {
+  let ctx: TestContext;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    await app.init();
+  beforeAll(async () => {
+    ctx = await createTestApp();
   });
 
-  it('/api/health (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api/health')
-      .expect(200)
-      .expect({ status: 'ok' });
+  afterAll(async () => {
+    await ctx.app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('GET /api/health → 200 dengan envelope standar', async () => {
+    const res = await request(ctx.app.getHttpServer()).get('/api/health').expect(200);
+
+    expect(res.body).toEqual({
+      success: true,
+      message: 'OK',
+      data: { status: 'ok', database: 'up' },
+    });
+  });
+
+  it('route tidak dikenal → 404 dengan envelope error', async () => {
+    const res = await request(ctx.app.getHttpServer()).get('/api/tidak-ada').expect(404);
+
+    expect(res.body).toEqual({ success: false, message: 'Resource tidak ditemukan' });
   });
 });
