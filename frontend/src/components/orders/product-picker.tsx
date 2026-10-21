@@ -54,11 +54,12 @@ export function ProductPicker({ onAdd, quantityInCart }: ProductPickerProps) {
               {products.map((product) => {
                 const inCart = quantityInCart(product.id);
                 const soldOut = product.stock <= 0;
+                const maxedOut = !soldOut && inCart >= product.stock;
                 return (
                   <CommandItem
                     key={product.id}
                     value={String(product.id)}
-                    disabled={soldOut}
+                    disabled={soldOut || maxedOut}
                     onSelect={() => onAdd(product)}
                     className="gap-3 rounded-md px-2 py-2 [&>svg:last-child]:hidden"
                   >
@@ -72,10 +73,11 @@ export function ProductPicker({ onAdd, quantityInCart }: ProductPickerProps) {
                         {inCart > 0 && (
                           <span className="font-medium text-zinc-900">· {inCart} di pesanan</span>
                         )}
+                        {maxedOut && <span className="text-amber-600">· batas stok</span>}
                       </span>
                     </div>
                     <StockBadge stock={product.stock} className="hidden sm:inline-flex" />
-                    {!soldOut && (
+                    {!soldOut && !maxedOut && (
                       <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-zinc-200 text-zinc-700 group-data-selected/command-item:border-black group-data-selected/command-item:bg-black group-data-selected/command-item:text-white">
                         <Plus className="size-3.5" />
                       </span>

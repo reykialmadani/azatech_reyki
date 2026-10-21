@@ -32,8 +32,12 @@ export function OrderItemRow({ index, product, onRemove }: OrderItemRowProps) {
   const message = rowErrors?.quantity?.message ?? rowErrors?.product_id?.message;
   const inputId = `items-${index}-quantity`;
 
+  // Batas atas jumlah = stok tersedia (jika snapshot produk sudah ada).
+  const maxQty = product ? Math.max(1, product.stock) : undefined;
+  const atMax = maxQty !== undefined && qty >= maxQty;
+
   const setQuantity = (next: number) =>
-    setValue(`items.${index}.quantity`, Math.max(1, next), {
+    setValue(`items.${index}.quantity`, Math.min(maxQty ?? Infinity, Math.max(1, next)), {
       shouldDirty: true,
       shouldValidate: isSubmitted, // juga menghapus error server setelah diperbaiki
     });
@@ -88,6 +92,7 @@ export function OrderItemRow({ index, product, onRemove }: OrderItemRowProps) {
               type="number"
               inputMode="numeric"
               min={1}
+              max={maxQty}
               step={1}
               aria-label={`Jumlah ${product?.product_name ?? ""}`}
               aria-invalid={Boolean(message)}
@@ -96,7 +101,16 @@ export function OrderItemRow({ index, product, onRemove }: OrderItemRowProps) {
                 "h-7 w-12 border-y border-zinc-200 bg-white text-center text-sm font-medium tabular-nums outline-none [appearance:textfield] focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
                 message && "border-red-600 text-red-700",
               )}
-              {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+              {...register(`items.${index}.quantity`, {
+                valueAsNumber: true,
+                // Ketikan manual yang melebihi stok langsung dikembalikan ke batas stok.
+                onChange: (event) => {
+                  const typed = event.target.valueAsNumber;
+                  if (maxQty !== undefined && Number.isFinite(typed) && typed > maxQty) {
+                    setQuantity(maxQty);
+                  }
+                },
+              })}
             />
             <Button
               type="button"
@@ -104,6 +118,8 @@ export function OrderItemRow({ index, product, onRemove }: OrderItemRowProps) {
               size="icon-sm"
               aria-label="Tambah jumlah"
               className="rounded-l-none rounded-r-md"
+              disabled={atMax}
+              title={atMax ? "Jumlah sudah mencapai stok tersedia" : undefined}
               onClick={() => setQuantity(qty + 1)}
             >
               <Plus />
@@ -115,6 +131,10 @@ export function OrderItemRow({ index, product, onRemove }: OrderItemRowProps) {
             <span className="text-sm font-semibold text-zinc-900">{formatRupiah(unitPrice * qty)}</span>
           </p>
         </div>
+
+        {!message && atMax && (
+          <p className="text-xs text-amber-600">Jumlah sudah mencapai batas stok tersedia.</p>
+        )}
 
         {message && (
           <p id={`${inputId}-error`} role="alert" className="text-xs font-medium text-red-600">

@@ -7,7 +7,12 @@ import { AlertCircle, MapPin, Phone } from "lucide-react";
 import { CustomerAvatar } from "@/components/customers/customer-avatar";
 import { useCreateOrder } from "@/hooks/use-orders";
 import { applyServerErrors, errorMessage } from "@/lib/api/form-errors";
-import { orderSchema, toOrderPayload, type OrderFormValues } from "@/lib/schemas/order";
+import {
+  findStockIssues,
+  orderSchema,
+  toOrderPayload,
+  type OrderFormValues,
+} from "@/lib/schemas/order";
 import type { Customer } from "@/types/customer";
 import type { Product } from "@/types/product";
 import { CustomerCombobox } from "./customer-combobox";
@@ -46,12 +51,15 @@ export function OrderForm() {
     const index = items.findIndex((item) => item.product_id === product.id);
 
     if (index >= 0) {
-      // Produk yang sama tidak dibuat baris baru, cukup tambah jumlahnya.
+      // Produk yang sama tidak dibuat baris baru, cukup tambah jumlahnya (maksimal sebesar stok).
       const current = items[index]!.quantity;
-      setValue(`items.${index}.quantity`, (Number.isFinite(current) ? current : 0) + 1, {
+      const next = (Number.isFinite(current) ? current : 0) + 1;
+      if (next > product.stock) return;
+      setValue(`items.${index}.quantity`, next, {
         shouldValidate: formState.isSubmitted,
       });
     } else {
+      if (product.stock <= 0) return;
       append({ product_id: product.id, quantity: 1 }, { shouldFocus: false });
       clearErrors("items");
     }
@@ -64,6 +72,16 @@ export function OrderForm() {
 
   const onSubmit = (values: OrderFormValues) => {
     setServerAlert(null);
+
+    const stockIssues = findStockIssues(values.items, products);
+    if (stockIssues.length > 0) {
+      stockIssues.forEach(({ index, message }) =>
+        setError(`items.${index}.quantity`, { type: "stock", message }),
+      );
+      setServerAlert("Jumlah beberapa produk melebihi stok tersedia");
+      return;
+    }
+
     createOrder.mutate(toOrderPayload(values), {
       onError: (error) => {
         // Mis. { "items.0.quantity": ["Stok Hydrococo tersisa 1, diminta 2"] }
