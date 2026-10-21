@@ -20,6 +20,6 @@ export async function createTestApp(): Promise<TestContext> {
 /** Kosongkan semua tabel & reset sequence id agar tiap test independen. */
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE order_items, orders, order_counters, products, customers, users RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE order_items, orders, order_counters, products, customers, sessions, users RESTART IDENTITY CASCADE',
   );
 }

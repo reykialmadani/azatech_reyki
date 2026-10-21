@@ -5,11 +5,13 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   MinLength,
   validateSync,
 } from 'class-validator';
+import { DURATION_PATTERN } from '../common/utils/duration.js';
 
 class EnvironmentVariables {
   @IsOptional()
@@ -39,10 +41,10 @@ class EnvironmentVariables {
   @MinLength(16)
   JWT_REFRESH_SECRET: string;
 
-  @IsString()
+  @Matches(DURATION_PATTERN, { message: 'JWT_ACCESS_TTL harus berformat <angka><s|m|h|d>, mis. 15m' })
   JWT_ACCESS_TTL = '15m';
 
-  @IsString()
+  @Matches(DURATION_PATTERN, { message: 'JWT_REFRESH_TTL harus berformat <angka><s|m|h|d>, mis. 7d' })
   JWT_REFRESH_TTL = '7d';
 }
 
