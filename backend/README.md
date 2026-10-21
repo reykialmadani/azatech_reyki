@@ -1,124 +1,81 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend — Azatech Online Shop API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 12 · TypeScript strict (ESM) · Prisma 7 (driver adapter `pg`) · PostgreSQL 17 · Vitest + Supertest · oxlint.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Gambaran umum, alur order, dan desain database ada di [README root](../README.md). Dokumen ini panduan developer backend.
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Setup lokal
 
 ```bash
-$ pnpm install
+docker compose up -d db          # dari root repo: PostgreSQL di localhost:5432
+cp .env.example .env
+cp .env.test.example .env.test
+pnpm install
+pnpm db:deploy                   # terapkan migrasi
+pnpm db:seed                     # admin@azatech.id / Admin123!
+pnpm start:dev                   # http://localhost:4000/api · Swagger: /api/docs
 ```
 
-## Compile and run the project
+## Scripts
 
-```bash
-# development
-$ pnpm run start
+| Script | Fungsi |
+|---|---|
+| `start:dev` | Watch mode; menulis ulang `docs/openapi.json` saat `NODE_ENV=development` |
+| `build` / `start:prod` | `prisma generate` + `nest build` → `node dist/main` |
+| `lint` / `format` | oxlint (type-aware) / prettier |
+| `test` | Unit test (`src/**/*.spec.ts`) |
+| `test:e2e` | E2E terhadap DB `*_test` (dibuat & dimigrasi otomatis) |
+| `db:migrate` | `prisma migrate dev` — buat migrasi baru dari perubahan schema |
+| `db:deploy` | `prisma migrate deploy` — terapkan migrasi (dipakai Docker/CI) |
+| `db:seed` | Seeder deterministik & idempoten |
+| `db:reset` | Hapus semua data + migrasi ulang (lalu jalankan `db:seed`) |
 
-# watch mode
-$ pnpm run start:dev
+## Environment
 
-# production mode
-$ pnpm run start:prod
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Koneksi PostgreSQL |
+| `FRONTEND_URL` | ✅ | Origin CORS yang diizinkan (boleh beberapa, dipisah koma) |
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | ✅ | Min. 16 karakter, harus berbeda |
+| `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL` | | Default `15m`, `7d` (format `<angka><s\|m\|h\|d>`) |
+| `PORT`, `NODE_ENV` | | Default `4000`, `development` |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | | Akun admin seeder |
+
+Env divalidasi saat boot ([`src/config/env.validation.ts`](src/config/env.validation.ts)); server menolak start bila ada yang hilang/tidak valid.
+
+## Struktur `src/`
+
+```
+common/
+  decorators/    @Public(), @CurrentUser(), @ResponseMessage()
+  dto/           PaginationQueryDto (page, per_page ≤ 100)
+  exceptions/    ApiException — error dengan `errors` per field
+  filters/       AllExceptionsFilter → { success:false, message, errors? }
+  interceptors/  ResponseInterceptor → { success, message, data, meta? }
+  pipes/         ValidationPipe 422 (dot-notation), IntIdPipe/UuidPipe (id mustahil → 404)
+  transformers/  Trim, TrimUpper, TrimToNull
+  utils/         pagination, jakarta-date (WIB), money ("12000.00"), duration, prisma-errors
+  validators/    IsPastIsoDate, IsIsoDate
+config/          validasi env
+auth/            AuthService (argon2, JWT, sesi), JwtAuthGuard (APP_GUARD global)
+products/ customers/ orders/ dashboard/ health/
+  <modul>.controller.ts   HTTP saja
+  <modul>.service.ts      logika bisnis
+  <modul>.mapper.ts       Prisma (camelCase) → API (snake_case)
+  dto/                    validasi input + dokumentasi Swagger (plugin @nestjs/swagger)
+configure-app.ts  prefix, helmet, CORS, pipe/filter/interceptor global — dipakai main.ts & e2e
+swagger.ts        Swagger UI + export docs/openapi.json
 ```
 
-## Run tests
+## Konvensi
 
-```bash
-# unit tests
-$ pnpm run test
+- **Secure by default:** `JwtAuthGuard` global; route publik wajib ditandai `@Public()`.
+- **Kontrak API snake_case**, uang sebagai string 2 desimal, `deleted_at` tidak pernah diekspos.
+- **Validasi input** di DTO (`whitelist` + `forbidNonWhitelisted`: field asing → 422). Aturan yang butuh DB (kode unik, stok, relasi) di service.
+- **Error bisnis** dengan field terkait memakai `ApiException(status, message, errors)` agar frontend bisa menandai input yang salah.
+- Import memakai suffix `.js` (ESM `nodenext`). Prisma Client di-generate ke `src/generated/prisma` (gitignored; dibuat oleh `pnpm build` / `prisma generate`).
 
-# e2e tests
-$ pnpm run test:e2e
+## Dokumentasi API
 
-# test coverage
-$ pnpm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ pnpm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Swagger UI: `/api/docs` · OpenAPI: [`docs/openapi.json`](docs/openapi.json)
+- Postman: [`docs/azatech-api.postman_collection.json`](docs/azatech-api.postman_collection.json) — `newman run docs/azatech-api.postman_collection.json` (beri jeda 1 menit antar run penuh: rate limit login 5/menit)
