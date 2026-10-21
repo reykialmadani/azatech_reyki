@@ -13,15 +13,33 @@ enum Gender {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String   @db.VarChar(100)
-  email     String   @unique @db.VarChar(150)
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(100)
+  email     String    @unique @db.VarChar(150)
   password  String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
   orders    Order[]
+  sessions  Session[]
 
   @@map("users")
+}
+
+/// Satu login = satu sesi. Access token membawa `sid`; logout me-revoke sesi
+/// sehingga access token yang belum kedaluwarsa pun langsung ditolak.
+model Session {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  /// SHA-256 dari refresh token aktif (rotasi: berganti setiap refresh).
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(64)
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
 }
 
 model Product {
