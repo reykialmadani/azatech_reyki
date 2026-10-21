@@ -1,3 +1,8 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+
+# Tahan koneksi lambat/putus (mis. saat docker build)
+fetchRetries: 5
+fetchTimeout: 120000
+networkConcurrency: 8
