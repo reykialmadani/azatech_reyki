@@ -144,4 +144,4 @@ Skenario wajib soal tercakup: order sukses, stok tidak cukup (409 dan tidak ada 
 2. **Eksekusi bertahap per batch.** Setiap batch berisi satu bagian dari PRD (fondasi, auth, products/customers, orders, dashboard + seeder, frontend per halaman, Docker/CI). AI menuliskan kodenya sesuai arahan tersebut.
 3. **Setiap batch saya review, verifikasi** (build, lint, test, coba langsung di aplikasi), dan perbaiki bila arahnya keliru, sebelum di-commit dan lanjut ke batch berikutnya.
 
-Sebagian besar kode diketik oleh AI. Yang saya pegang adalah logika bisnis, arsitektur, dan arah aplikasi, serta keputusan apakah hasil AI diterima. Saya bertanggung jawab atas seluruh kode di repository ini dan dapat dijelaskan
+Sebagian besar kode diketik oleh AI. Yang saya pegang adalah logika bisnis, arsitektur, dan arah aplikasi, serta keputusan apakah hasil AI diterima. Saya bertanggung jawab atas seluruh kode di repository ini dan dapat dijelaskan.
