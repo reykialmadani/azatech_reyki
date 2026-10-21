@@ -1,0 +1,26 @@
+# Menjalankan seluruh stack: docker compose up -d --build
+# Nilai default (${VAR:-default}) membuat compose tetap jalan walau .env root belum dibuat.
+name: azatech
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-azatech}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-azatech}
+      POSTGRES_DB: ${POSTGRES_DB:-azatech_shop}
+      # Sengaja tetap UTC: kolom timestamp disimpan UTC oleh Prisma;
+      # konversi WIB dilakukan di aplikasi (src/common/utils/jakarta-date.ts).
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
