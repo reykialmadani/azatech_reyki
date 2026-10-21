@@ -1,0 +1,30 @@
+# Dependencies & build output
+node_modules/
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Environment — hanya *.example yang di-commit
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Prisma generated client
+backend/src/generated/
+
+# Logs & OS / editor
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
