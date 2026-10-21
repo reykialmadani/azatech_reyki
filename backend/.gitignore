@@ -1,0 +1,15 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+
+.env.test
+.env.*.local
+dist
+coverage
+
+/prd-backend.md
+/technical-test-medior-fullstack.md
+
+dev-plan
