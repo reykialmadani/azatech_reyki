@@ -9,7 +9,11 @@ export interface LoginPayload {
   password: string;
 }
 
+// Dipakai juga oleh POST /auth/refresh (rotasi: refresh token lama hangus).
 export interface LoginResult {
   access_token: string;
+  refresh_token: string;
+  token_type: "Bearer";
+  expires_in: number; // detik
   user: User;
 }

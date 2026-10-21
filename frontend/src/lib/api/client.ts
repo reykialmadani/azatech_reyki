@@ -1,5 +1,6 @@
-import { clearToken, getToken } from "@/lib/auth/token";
-import type { ApiErrorBody, ApiFieldErrors } from "@/types/api";
+import { clearToken, getRefreshToken, getToken, setToken } from "@/lib/auth/token";
+import type { ApiErrorBody, ApiFieldErrors, ApiResponse } from "@/types/api";
+import type { LoginResult } from "@/types/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 // Mode mock sementara selama backend belum siap (lihat lib/api/mock).
@@ -44,31 +45,72 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   return fetch(`${API_URL}${path}`, init);
 }
 
+const JSON_HEADERS = { "Content-Type": "application/json", Accept: "application/json" };
+
+// Endpoint yang 401-nya tidak boleh memicu refresh (mencegah loop).
+const NO_REFRESH_ENDPOINTS = ["/auth/login", "/auth/refresh", "/auth/logout"];
+
+let refreshing: Promise<boolean> | null = null;
+
+/**
+ * Tukar refresh token dengan pasangan token baru. Beberapa request yang 401
+ * bersamaan berbagi satu promise, karena refresh token hanya sah dipakai sekali (rotasi).
+ */
+function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+    try {
+      const res = await send("/auth/refresh", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) return false;
+      const { data } = (await res.json()) as ApiResponse<LoginResult>;
+      setToken(data.access_token, data.refresh_token);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 export async function apiClient<T>(
   endpoint: string,
   { body, query, headers, ...init }: RequestOptions = {},
 ): Promise<T> {
-  const token = getToken();
+  const request = async (token: string | null) => {
+    try {
+      return await send(buildPath(endpoint, query), {
+        ...init,
+        headers: {
+          ...JSON_HEADERS,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...headers,
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch {
+      throw new ApiError(0, {
+        message: "Tidak dapat terhubung ke server. Periksa koneksi Anda.",
+      });
+    }
+  };
 
-  let response: Response;
-  try {
-    response = await send(buildPath(endpoint, query), {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...headers,
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiError(0, {
-      message: "Tidak dapat terhubung ke server. Periksa koneksi Anda.",
-    });
+  const token = getToken();
+  let response = await request(token);
+
+  // Access token kedaluwarsa: coba refresh sekali, lalu ulangi request.
+  const canRefresh = !NO_REFRESH_ENDPOINTS.includes(endpoint);
+  if (response.status === 401 && token && canRefresh && (await refreshSession())) {
+    response = await request(getToken());
   }
 
-  // Token kedaluwarsa / tidak valid: bersihkan sesi lalu hard redirect.
+  // Refresh gagal / sesi di-revoke: bersihkan sesi lalu hard redirect.
   // Login sendiri juga bisa 401 (kredensial salah) — biarkan form yang menangani.
   if (response.status === 401 && token && typeof window !== "undefined") {
     clearToken();

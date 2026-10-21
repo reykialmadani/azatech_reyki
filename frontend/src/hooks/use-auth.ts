@@ -39,7 +39,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
     onSuccess: ({ data }) => {
-      setToken(data.access_token);
+      setToken(data.access_token, data.refresh_token);
       queryClient.setQueryData(authKeys.me, data.user);
       router.replace("/dashboard");
     },
