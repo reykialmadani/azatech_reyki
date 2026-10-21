@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileX2, Printer } from "lucide-react";
+import { ArrowLeft, Download, FileX2, Loader2, Printer } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -9,11 +11,26 @@ import { ErrorState } from "@/components/shared/error-state";
 import { useOrder } from "@/hooks/use-orders";
 import { isApiError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/form-errors";
+import type { OrderDetail } from "@/types/order";
 import { OrderInvoiceView } from "./order-invoice-view";
 
 export function OrderDetailView({ id }: { id: number }) {
   const { data: order, isPending, isError, error, refetch } = useOrder(id);
   const notFound = !Number.isInteger(id) || id <= 0 || (isApiError(error) && error.status === 404);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // react-pdf cukup besar, jadi baru dimuat saat tombol diklik.
+  const downloadPdf = async (detail: OrderDetail) => {
+    setIsDownloading(true);
+    try {
+      const { downloadInvoicePdf } = await import("./order-invoice-pdf");
+      await downloadInvoicePdf(detail);
+    } catch {
+      toast.error("Gagal membuat PDF faktur. Coba lagi.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -26,10 +43,20 @@ export function OrderDetailView({ id }: { id: number }) {
           Riwayat Pesanan
         </Link>
         {order && (
-          <Button onClick={() => window.print()} className="h-9 rounded-md bg-black px-3 text-white hover:bg-zinc-800">
-            <Printer />
-            Cetak Faktur
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => window.print()} className="h-9 rounded-md px-3">
+              <Printer />
+              Cetak
+            </Button>
+            <Button
+              onClick={() => downloadPdf(order)}
+              disabled={isDownloading}
+              className="h-9 rounded-md bg-black px-3 text-white hover:bg-zinc-800"
+            >
+              {isDownloading ? <Loader2 className="animate-spin" /> : <Download />}
+              Unduh Faktur PDF
+            </Button>
+          </div>
         )}
       </div>
 
